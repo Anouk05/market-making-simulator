@@ -1,0 +1,22 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+
+# Environment variables
+.env
+
+# Node / frontend
+node_modules/
+dist/
+
+# OS
+.DS_Store
+
+# Tests (kept local)
+backend/tests/
+
+# Screenshots and files made while developing
+Claude outputs/

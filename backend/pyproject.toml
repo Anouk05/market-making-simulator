@@ -1,0 +1,9 @@
+# Settings for Ruff, the formatter and linter for the Python code.
+#   ruff format .       format all files
+#   ruff check --fix .  find (and fix) common mistakes and sort imports
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]  # pycodestyle errors, pyflakes, import sorting
