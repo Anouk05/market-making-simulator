@@ -102,6 +102,7 @@ class TradeOut(BaseModel):
 class GameStateOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
+    game_id: str
     round: int
     n_rounds: int
     max_inventory: int

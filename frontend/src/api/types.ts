@@ -62,6 +62,7 @@ export interface Trade {
 }
 
 export interface GameState {
+  game_id: string // identifies this game on the backend
   round: number
   n_rounds: number
   max_inventory: number

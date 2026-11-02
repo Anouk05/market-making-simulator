@@ -7,8 +7,29 @@
 
 import { useEffect, useState } from 'react'
 
-import { ApiError, getGame, startGame, submitQuote } from '../api/client'
+import { ApiError, GameNotFoundError, getGame, startGame, submitQuote } from '../api/client'
 import type { GameState, NewGameRequest, QuoteRequest, RoundResult } from '../api/types'
+
+// The ID of the current game is kept in the browser (localStorage), so a page refresh
+// continues the same game. Storage can be unavailable (e.g. private mode), hence try/catch.
+const STORAGE_KEY = 'mms-game-id'
+
+function loadGameId(): string | null {
+  try {
+    return localStorage.getItem(STORAGE_KEY)
+  } catch {
+    return null
+  }
+}
+
+function saveGameId(gameId: string | null) {
+  try {
+    if (gameId) localStorage.setItem(STORAGE_KEY, gameId)
+    else localStorage.removeItem(STORAGE_KEY)
+  } catch {
+    // not stored: a refresh simply starts without a game
+  }
+}
 
 export function useGame() {
   const [game, setGame] = useState<GameState | null>(null) // null = no game started yet
@@ -16,18 +37,21 @@ export function useGame() {
   const [loading, setLoading] = useState(false) // true while waiting for the backend
   const [error, setError] = useState<string | null>(null) // message to show the player
 
-  // When the page opens, pick up a game that is still running on the backend
-  // (e.g. after a page refresh). The trade history of earlier rounds is not
-  // stored on the backend, so only the state and price history come back.
+  // When the page opens, pick up the game this browser was playing (e.g. after a page
+  // refresh). The trade history of earlier rounds is not stored on the backend, so only
+  // the state and price history come back.
   useEffect(() => {
-    getGame()
+    const gameId = loadGameId()
+    if (!gameId) return
+    getGame(gameId)
       .then(setGame)
-      .catch(() => setGame(null)) // 404: no game yet, that's fine
+      .catch(() => saveGameId(null)) // the game no longer exists (or the backend is unreachable)
   }, [])
 
   async function newGame(settings: NewGameRequest = {}) {
     await run(async () => {
       const state = await startGame(settings)
+      saveGameId(state.game_id)
       setGame(state)
       setRounds([])
     })
@@ -36,7 +60,7 @@ export function useGame() {
   async function quote(q: QuoteRequest) {
     if (!game || game.done) return
     await run(async () => {
-      const result = await submitQuote(q)
+      const result = await submitQuote(game.game_id, q)
       setRounds((previous) => [...previous, result])
       setGame(
         (previous) =>
@@ -63,7 +87,12 @@ export function useGame() {
     try {
       await action()
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Could not reach the backend. Is it running?')
+      if (e instanceof GameNotFoundError) {
+        saveGameId(null) // forget the game, so the player sees the start screen again
+        setGame(null)
+        setRounds([])
+      }
+      setError(e instanceof ApiError ? e.message : 'Could not reach the server. Please try again in a moment.')
     } finally {
       setLoading(false)
     }

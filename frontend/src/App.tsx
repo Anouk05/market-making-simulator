@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 
-import { getDefaults } from './api/client'
+import { waitForDefaults } from './api/client'
 import type { GameSettings } from './api/types'
 
 import { HelpDialog } from './components/HelpDialog'
@@ -26,12 +26,19 @@ function App() {
   const [helpOpen, setHelpOpen] = useState(false)
   const [defaults, setDefaults] = useState<GameSettings | null>(null) // from the backend
   const [settings, setSettings] = useState<GameSettings | null>(null) // last used, null = use the defaults
+  const [waking, setWaking] = useState(false) // true while the (sleeping) backend starts up
 
-  // The default settings live in the backend (market/config.py); fetch them once.
+  // The default settings live in the backend (market/config.py). Fetching them also tells
+  // us the backend is awake; until then, show a "waking up" message.
   useEffect(() => {
-    getDefaults()
-      .then(setDefaults)
-      .catch(() => setDefaults(null))
+    const controller = new AbortController()
+    waitForDefaults(() => setWaking(true), controller.signal)
+      .then((d) => {
+        setDefaults(d)
+        setWaking(false)
+      })
+      .catch(() => {}) // only happens when the page closes
+    return () => controller.abort()
   }, [])
 
   async function startGame(newSettings: GameSettings) {
@@ -78,6 +85,11 @@ function App() {
         </div>
       </header>
 
+      {waking && (
+        <p className="mx-4 mt-4 rounded-lg bg-slate-800 px-4 py-2 text-slate-300">
+          The server is waking up. This can take up to a minute the first time…
+        </p>
+      )}
       {error && <p className="mx-4 mt-4 rounded-lg bg-rose-950 px-4 py-2 text-rose-300">{error}</p>}
 
       {!game ? (

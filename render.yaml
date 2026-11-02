@@ -1,0 +1,40 @@
+# Render Blueprint: describes both parts of the app so Render can create them in one go.
+# Docs: https://render.com/docs/blueprint-spec
+#
+#   market-making-simulator      the website (React), served as static files
+#   market-making-simulator-api  the backend (FastAPI), a Python web service
+#
+# The website forwards every /api/... request to the backend (the rewrite rule below),
+# so for the browser everything comes from one address and no CORS setup is needed.
+
+services:
+  # ----- Backend: FastAPI ---------------------------------------------------------
+  - type: web
+    name: market-making-simulator-api
+    runtime: python
+    plan: free # sleeps after 15 minutes without visitors; wakes up on the next request
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    # Render tells the app which port to listen on through $PORT.
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.8
+
+  # ----- Frontend: React + Vite, built once and served as static files --------------
+  - type: web
+    name: market-making-simulator
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+    routes:
+      # Forward API calls to the backend. If Render gives the backend a different
+      # address (it adds a suffix when the name is taken), change it here.
+      - type: rewrite
+        source: /api/*
+        destination: https://market-making-simulator-api.onrender.com/api/*
