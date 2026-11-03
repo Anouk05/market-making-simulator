@@ -20,9 +20,9 @@ app = FastAPI(
     version="0.1.0",
 )
 
-# Browsers block a website from calling an API on a different address
-# unless the API allows it. The React dev server runs on localhost:5173 and
-# this API on localhost:8000, so that address is allowed.
+# Lets a frontend on another address call the API directly (browsers block this by default).
+# Normally not needed: the Vite dev server and Render both forward /api, so requests come
+# from the same address. Set ALLOWED_ORIGINS to allow other addresses.
 allowed_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173").split(",")
 app.add_middleware(
     CORSMiddleware,
