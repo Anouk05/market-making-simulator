@@ -5,6 +5,7 @@
 import { useState } from 'react'
 
 import type { RoundResult } from '../api/types'
+import { panel, panelHeader, panelTitle } from '../styles'
 import { InfoTooltip } from './InfoTooltip'
 
 interface OrderBookViewProps {
@@ -17,23 +18,28 @@ interface Entry {
   quantity: number
   filled: number
   mine: boolean // true for your own bid or ask
+  arrival?: number // trader orders only: 1 = arrived first
 }
 
 const ORDER_BOOK_INFO =
-  'Your bid and ask together with the trader orders of one round, sorted by price. A trader whose valuation lies outside your spread sends an immediate-or-cancel order at their limit price; all trades happen at your quote, in order of arrival, until your size is used up.'
+  'Your bid and ask together with the trader orders of one round, sorted by price. A trader whose valuation lies outside your spread sends an immediate-or-cancel order at their limit price; all trades happen at your quote. Traders are filled in order of arrival (#1 first), not by price. Orders marked “Cancelled” did not trade, because your size was already used up.'
 
 export function OrderBookView({ rounds }: OrderBookViewProps) {
   // null = always show the latest round; a number = the round the player picked.
   const [selected, setSelected] = useState<number | null>(null)
 
+  const title = (
+    <h2 className={panelTitle}>
+      Order book
+      <InfoTooltip text={ORDER_BOOK_INFO} />
+    </h2>
+  )
+
   if (rounds.length === 0) {
     return (
-      <section className="h-full rounded-xl bg-slate-900 p-4">
-        <h2 className="flex items-center gap-2 text-lg font-semibold">
-          Order book
-          <InfoTooltip text={ORDER_BOOK_INFO} />
-        </h2>
-        <p className="mt-2 text-sm text-slate-400">Submit a quote to see the order book of that round.</p>
+      <section className={`${panel} h-full`}>
+        <div className={panelHeader}>{title}</div>
+        <p className="p-4 text-sm text-muted">Submit a quote to see the order book of that round.</p>
       </section>
     )
   }
@@ -45,56 +51,63 @@ export function OrderBookView({ rounds }: OrderBookViewProps) {
   const spread = quote.bid_size > 0 && quote.ask_size > 0 ? (quote.ask - quote.bid).toFixed(2) : null
 
   return (
-    <section className="min-h-full space-y-3 rounded-xl bg-slate-900 p-4">
-      <div className="flex items-center justify-between">
-        <h2 className="flex items-center gap-2 text-lg font-semibold">
-          Order book
-          <InfoTooltip text={ORDER_BOOK_INFO} />
-        </h2>
-        <div className="flex items-center gap-2 text-sm">
-          <NavButton label="◀" disabled={index === 0} onClick={() => setSelected(index - 1)} />
-          <span className="w-20 text-center tabular-nums">Round {round.round}</span>
+    <section className={`${panel} h-full`}>
+      <div className={panelHeader}>
+        {title}
+        <div className="flex items-center gap-1 text-[13px]">
+          <NavButton label="Previous round" disabled={index === 0} onClick={() => setSelected(index - 1)}>
+            ◀
+          </NavButton>
+          <span className="w-[72px] text-center">
+            Round <span className="font-mono">{round.round}</span>
+          </span>
           <NavButton
-            label="▶"
+            label="Next round"
             disabled={index === rounds.length - 1}
             onClick={() => setSelected(index + 1 === rounds.length - 1 ? null : index + 1)}
-          />
+          >
+            ▶
+          </NavButton>
         </div>
       </div>
 
-      <p className="text-sm text-slate-400">
-        {round.n_traders} {round.n_traders === 1 ? 'trader' : 'traders'} arrived · {round.trader_orders.length} sent an
-        order
-      </p>
+      {/* Scrolls inside the panel (*:shrink-0 keeps the ladder from being squeezed) */}
+      <div className="flex min-h-0 flex-col gap-3 overflow-y-auto px-4 pt-2.5 pb-4 text-sm *:shrink-0">
+        <p className="text-[13px] text-muted">
+          {round.n_traders} {round.n_traders === 1 ? 'trader' : 'traders'} arrived · {round.trader_orders.length} sent
+          an order
+        </p>
 
-      <div className="-mx-1 grid grid-cols-[1fr_auto_auto_auto_1fr] overflow-x-auto px-1 text-sm tabular-nums">
-        <span className="pb-1 text-slate-400">Bid</span>
-        <span className="pb-1 pr-3 text-right text-slate-400">Size</span>
-        <span className="px-3 pb-1 text-center text-slate-400">Price</span>
-        <span className="pb-1 pl-3 text-slate-400">Size</span>
-        <span className="pb-1 text-right text-slate-400">Ask</span>
+        <div className="-mx-1 grid grid-cols-[minmax(0,1fr)_3.5rem_5.25rem_3.5rem_minmax(0,1fr)] items-center gap-y-1 overflow-x-auto px-1">
+          <span className="text-[13px] font-semibold text-teal">Bid</span>
+          <span className="pr-2.5 text-right text-xs text-muted">Size</span>
+          <span className="text-center text-xs text-muted">Price</span>
+          <span className="pl-2.5 text-xs text-muted">Size</span>
+          <span className="text-right text-[13px] font-semibold text-pink">Ask</span>
 
-        {above.map((entry, i) => (
-          <Row key={`a${i}`} entry={entry} />
-        ))}
+          {above.map((entry, i) => (
+            <Row key={`a${i}`} entry={entry} />
+          ))}
 
-        <div className="col-span-5 flex items-center gap-2 py-1.5 text-xs text-slate-500">
-          <span className="h-px flex-1 border-t border-dashed border-slate-700" />
-          {spread ? `spread ${spread}` : 'one-sided quote'}
-          <span className="h-px flex-1 border-t border-dashed border-slate-700" />
+          <div className="col-span-5 flex items-center gap-2 py-0.5 text-xs text-subtle">
+            <span className="flex-1 border-t border-dashed border-line" />
+            {spread ? (
+              <>
+                spread <span className="font-mono">{spread}</span>
+              </>
+            ) : (
+              'one-sided quote'
+            )}
+            <span className="flex-1 border-t border-dashed border-line" />
+          </div>
+
+          {below.map((entry, i) => (
+            <Row key={`b${i}`} entry={entry} />
+          ))}
         </div>
 
-        {below.map((entry, i) => (
-          <Row key={`b${i}`} entry={entry} />
-        ))}
+        <FilledOrders round={round} />
       </div>
-
-      <FilledOrders round={round} />
-
-      <p className="text-xs text-slate-500">
-        Orders are shown at their limit price; all trades happen at your bid or ask. Dimmed orders were cancelled
-        because your size was used up.
-      </p>
     </section>
   )
 }
@@ -106,12 +119,14 @@ function buildLadder(round: RoundResult): { above: Entry[]; below: Entry[] } {
   const soldByYou = round.trades.filter((t) => t.side === 'sell').reduce((s, t) => s + t.quantity, 0)
   const boughtByYou = round.trades.filter((t) => t.side === 'buy').reduce((s, t) => s + t.quantity, 0)
 
-  const traders: Entry[] = round.trader_orders.map((o) => ({
+  // The backend lists trader orders in the order they arrived.
+  const traders: Entry[] = round.trader_orders.map((o, i) => ({
     side: o.side,
     price: o.limit_price,
     quantity: o.quantity,
     filled: o.filled,
     mine: false,
+    arrival: i + 1,
   }))
 
   const above = traders.filter((e) => e.side === 'buy')
@@ -132,21 +147,27 @@ function buildLadder(round: RoundResult): { above: Entry[]; below: Entry[] } {
 
 function Row({ entry }: { entry: Entry }) {
   const isBuy = entry.side === 'buy'
+  const cancelled = entry.filled === 0 && !entry.mine
   const label = <OrderLabel entry={entry} />
   const size = <SizeCell entry={entry} />
-  const priceClass = entry.mine ? `font-semibold ${isBuy ? 'text-emerald-400' : 'text-rose-400'}` : 'text-slate-300'
+  const priceClass = entry.mine
+    ? `font-semibold ${isBuy ? 'text-teal' : 'text-pink'}`
+    : cancelled
+      ? 'text-muted'
+      : 'text-fg'
   return (
     <>
-      <div className="py-1">{isBuy && label}</div>
-      <div className="py-1 pr-3 text-right">{isBuy && size}</div>
-      <div className={`px-3 py-1 text-center ${priceClass}`}>{entry.price.toFixed(2)}</div>
-      <div className="py-1 pl-3">{!isBuy && size}</div>
-      <div className="flex justify-end py-1">{!isBuy && label}</div>
+      <div className={cancelled ? 'opacity-45' : ''}>{isBuy && label}</div>
+      <div className="pr-2.5 text-right">{isBuy && size}</div>
+      <div className={`text-center font-mono ${priceClass}`}>{entry.price.toFixed(2)}</div>
+      <div className="pl-2.5">{!isBuy && size}</div>
+      <div className={`flex justify-end ${cancelled ? 'opacity-45' : ''}`}>{!isBuy && label}</div>
     </>
   )
 }
 
-// "You" or "Trader". Trader orders that did not trade at all are dimmed.
+// "You", or "Trader #2" / "Cancelled #3" for trader orders, with their arrival number.
+// Hover to see how much of the order was filled.
 function OrderLabel({ entry }: { entry: Entry }) {
   const status =
     entry.filled === entry.quantity
@@ -159,30 +180,43 @@ function OrderLabel({ entry }: { entry: Entry }) {
   return (
     <span
       title={status}
-      className={`inline-block whitespace-nowrap rounded-md px-2 py-0.5 font-medium ${
-        entry.mine ? 'bg-indigo-500/20 ring-1 ring-indigo-400' : 'bg-slate-800'
-      } ${entry.filled === 0 && !entry.mine ? 'opacity-50' : ''}`}
+      className={`inline-block rounded-[3px] px-2 py-0.5 text-xs whitespace-nowrap ${
+        entry.mine ? 'border border-peach font-bold text-peach' : 'bg-line-subtle font-semibold'
+      }`}
     >
-      {entry.mine ? 'You' : 'Trader'}
+      {entry.mine ? 'You' : `${entry.filled === 0 ? 'Cancelled' : 'Trader'} #${entry.arrival}`}
     </span>
   )
 }
 
-// The size of the order as a plain number. Trader orders that did not trade
-// at all are dimmed; what was filled is listed below the ladder.
+// The size of the order. Trader orders are coloured by side; cancelled ones are faded.
 function SizeCell({ entry }: { entry: Entry }) {
-  const tone = entry.filled === 0 && !entry.mine ? 'text-slate-500' : ''
-  return <span className={tone}>{entry.quantity}</span>
+  const tone = entry.mine
+    ? 'text-fg'
+    : entry.filled === 0
+      ? 'text-dim'
+      : entry.side === 'buy'
+        ? 'text-teal'
+        : 'text-pink'
+  return <span className={`font-mono ${tone}`}>{entry.quantity}</span>
 }
 
-function NavButton({ label, disabled, onClick }: { label: string; disabled: boolean; onClick: () => void }) {
+interface NavButtonProps {
+  label: string
+  disabled: boolean
+  onClick: () => void
+  children: React.ReactNode
+}
+
+function NavButton({ label, disabled, onClick, children }: NavButtonProps) {
   return (
     <button
       onClick={onClick}
       disabled={disabled}
-      className="rounded-md bg-slate-800 px-2 py-1 hover:bg-slate-700 disabled:opacity-30"
+      aria-label={label}
+      className="grid h-8 w-8 place-items-center rounded border border-line text-fg-soft hover:border-muted disabled:cursor-not-allowed disabled:border-line-subtle disabled:text-dim"
     >
-      {label}
+      {children}
     </button>
   )
 }
@@ -191,20 +225,22 @@ function NavButton({ label, disabled, onClick }: { label: string; disabled: bool
 function FilledOrders({ round }: { round: RoundResult }) {
   const filled = round.trader_orders.filter((o) => o.filled > 0)
   return (
-    <div className="border-t border-slate-800 pt-3 text-sm">
-      <p className="mb-1 text-slate-400">Filled orders</p>
+    <div className="border-t border-line pt-2.5">
+      <p className="mb-1 text-[13px] text-muted">Filled orders</p>
       {filled.length === 0 ? (
-        <p className="text-slate-500">No orders were filled.</p>
+        <p className="text-subtle">No orders were filled.</p>
       ) : (
-        <ul className="space-y-0.5 tabular-nums">
+        <ul className="space-y-0.5">
           {filled.map((o, i) => {
             const traderBought = o.side === 'buy'
             const price = traderBought ? round.quote.ask : round.quote.bid
-            const partly = o.filled < o.quantity ? ` (of ${o.quantity})` : ''
             return (
-              <li key={i} className={traderBought ? 'text-rose-400' : 'text-emerald-400'}>
-                {traderBought ? 'Sold' : 'Bought'} {o.filled} @ {price.toFixed(2)}
-                {partly}
+              <li key={i}>
+                <span className={traderBought ? 'text-pink' : 'text-teal'}>{traderBought ? 'Sold' : 'Bought'}</span>{' '}
+                <span className="font-mono">
+                  {o.filled} @ {price.toFixed(2)}
+                </span>
+                {o.filled < o.quantity && <span className="text-muted"> (of {o.quantity})</span>}
               </li>
             )
           })}

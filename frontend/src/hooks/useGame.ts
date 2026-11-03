@@ -1,9 +1,5 @@
-// The game logic of the frontend, in one custom hook.
-//
-// A hook is a function whose name starts with "use" and that can hold React
-// state. Components call useGame() and get back the current game data plus
-// functions to change it. Whenever the state changes, React redraws every
-// component that uses it.
+// The game state of the frontend in one hook: the current game, the rounds
+// played so far, and the actions to start a game and submit a quote.
 
 import { useEffect, useState } from 'react'
 

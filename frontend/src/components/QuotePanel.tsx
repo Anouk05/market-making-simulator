@@ -1,28 +1,30 @@
 // The form where the player enters a bid and ask (with sizes) and submits them.
-//
-// Props are the inputs a component receives from its parent, like function
-// arguments. This component does not talk to the backend itself: it calls
-// onSubmit() and lets the parent (App) decide what to do with the quote.
+// Below the inputs, a small ruler shows the quote around the current price.
+// It does not call the backend itself: it hands the quote to onSubmit().
 
 import { useEffect, useRef, useState } from 'react'
 
 import type { QuoteRequest } from '../api/types'
+import { num, parseNumber } from '../format'
+import { buttonPrimary, panel, panelFooter, panelHeader, panelTitle, underlineInput } from '../styles'
 import { InfoTooltip } from './InfoTooltip'
 
 interface QuotePanelProps {
   price: number // current price, used to pre-fill and re-centre the quote
-  disabled: boolean // true while waiting for the backend or when the game is over
+  round: number // the round this quote is for
+  disabled: boolean // true while waiting for the backend
   onSubmit: (quote: QuoteRequest) => void
 }
 
-const round2 = (x: number) => Math.round(x * 100) / 100
+// A price as text with two decimals, e.g. 100.5 -> "100.50".
+const price2 = (x: number) => (Math.round(x * 100) / 100).toFixed(2)
 
 const QUOTE_INFO = 'The prices and sizes at which you are willing to buy (bid) and sell (ask) this round.'
 
-export function QuotePanel({ price, disabled, onSubmit }: QuotePanelProps) {
+export function QuotePanel({ price, round, disabled, onSubmit }: QuotePanelProps) {
   // Inputs are kept as text, so the player can type freely (e.g. "99." halfway).
-  const [bid, setBid] = useState(String(round2(price - 0.5)))
-  const [ask, setAsk] = useState(String(round2(price + 0.5)))
+  const [bid, setBid] = useState(price2(price - 0.5))
+  const [ask, setAsk] = useState(price2(price + 0.5))
   const [bidSize, setBidSize] = useState('5')
   const [askSize, setAskSize] = useState('5')
 
@@ -33,18 +35,17 @@ export function QuotePanel({ price, disabled, onSubmit }: QuotePanelProps) {
     const move = price - previousPrice.current
     previousPrice.current = price
     if (move === 0) return
-    setBid((b) => String(round2(Number(b) + move)))
-    setAsk((a) => String(round2(Number(a) + move)))
+    setBid((b) => price2(parseNumber(b) + move))
+    setAsk((a) => price2(parseNumber(a) + move))
   }, [price])
 
   const quote: QuoteRequest = {
-    bid: Number(bid),
-    ask: Number(ask),
-    bid_size: Number(bidSize),
-    ask_size: Number(askSize),
+    bid: parseNumber(bid),
+    ask: parseNumber(ask),
+    bid_size: parseNumber(bidSize),
+    ask_size: parseNumber(askSize),
   }
-  const isComplete = [bid, ask, bidSize, askSize].every((v) => v.trim() !== '' && !Number.isNaN(Number(v)))
-  const spread = quote.ask - quote.bid
+  const isComplete = Object.values(quote).every((v) => !Number.isNaN(v))
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault() // stop the browser from reloading the page
@@ -52,75 +53,125 @@ export function QuotePanel({ price, disabled, onSubmit }: QuotePanelProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="h-full rounded-xl bg-slate-900 p-4 space-y-4">
-      <h2 className="flex items-center gap-2 text-lg font-semibold">
-        Your quote
-        <InfoTooltip text={QUOTE_INFO} />
-      </h2>
-
-      {/* Small screens: prices on the first row, sizes below.
-          Large screens: one row in order-book order: bid size | bid | ask | ask size. */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Field
-          label="Bid price"
-          value={bid}
-          onChange={setBid}
-          step="0.01"
-          accent="text-emerald-400"
-          className="lg:order-2"
-        />
-        <Field
-          label="Ask price"
-          value={ask}
-          onChange={setAsk}
-          step="0.01"
-          accent="text-rose-400"
-          className="lg:order-3"
-        />
-        <Field label="Bid size" value={bidSize} onChange={setBidSize} step="1" min="0" className="lg:order-1" />
-        <Field label="Ask size" value={askSize} onChange={setAskSize} step="1" min="0" className="lg:order-4" />
+    <form onSubmit={handleSubmit} className={`${panel} h-full`}>
+      <div className={panelHeader}>
+        <h2 className={panelTitle}>
+          Your quote
+          <InfoTooltip text={QUOTE_INFO} />
+        </h2>
+        <span className="text-[13px] text-muted">
+          for round <span className="font-mono">{round}</span>
+        </span>
       </div>
 
-      <p className="text-sm text-slate-400">
-        Spread: {isComplete ? spread.toFixed(2) : '–'} · Mid:{' '}
-        {isComplete ? ((quote.bid + quote.ask) / 2).toFixed(2) : '–'}
-      </p>
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-x-10 gap-y-5 px-5 pt-4 pb-2">
+        <Side label="Bid" tone="teal" price={bid} onPrice={setBid} size={bidSize} onSize={setBidSize} />
+        <Side label="Ask" tone="pink" price={ask} onPrice={setAsk} size={askSize} onSize={setAskSize} />
+      </div>
 
-      <button
-        type="submit"
-        disabled={disabled || !isComplete}
-        className="w-full rounded-lg bg-indigo-500 py-2 font-medium hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-40"
-      >
-        Submit quote
-      </button>
+      {isComplete && (
+        <div className="px-5 pt-4">
+          <QuoteRuler bid={quote.bid} ask={quote.ask} price={price} />
+        </div>
+      )}
+
+      <div className={panelFooter}>
+        <button type="submit" disabled={disabled || !isComplete} className={`${buttonPrimary} pr-2.5`}>
+          Submit quote
+          <span className="rounded-[3px] border border-peach-line px-1.5 py-0.5 font-mono text-[11px] font-normal text-[#c9b39e]">
+            Enter
+          </span>
+        </button>
+      </div>
     </form>
   )
 }
 
-// A small labelled number input, used four times above.
-interface FieldProps {
+// One side of the quote: a large price field with a small size field next to it.
+interface SideProps {
   label: string
-  value: string
-  onChange: (value: string) => void
-  step: string
-  min?: string
-  accent?: string // Tailwind text colour for the label
-  className?: string // extra classes, e.g. to change the position in the grid
+  tone: 'teal' | 'pink'
+  price: string
+  onPrice: (value: string) => void
+  size: string
+  onSize: (value: string) => void
 }
 
-function Field({ label, value, onChange, step, min, accent = 'text-slate-300', className = '' }: FieldProps) {
+function Side({ label, tone, price, onPrice, size, onSize }: SideProps) {
+  const id = label.toLowerCase()
   return (
-    <label className={`block space-y-1 ${className}`}>
-      <span className={`text-sm ${accent}`}>{label}</span>
-      <input
-        type="number"
-        inputMode="decimal"
-        value={value}
-        step={step}
-        min={min}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-md bg-slate-800 px-3 py-2 text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500"
-      />
-    </label>
+    <div className="flex flex-col gap-2">
+      <label
+        htmlFor={`${id}-price`}
+        className={`text-[13px] font-semibold ${tone === 'teal' ? 'text-teal' : 'text-pink'}`}
+      >
+        {label}
+      </label>
+      <div className="flex items-end gap-4">
+        <input
+          id={`${id}-price`}
+          type="text"
+          inputMode="decimal"
+          autoComplete="off"
+          value={price}
+          onChange={(e) => onPrice(e.target.value)}
+          className={`${underlineInput} h-12 flex-1 border-b-2 text-[26px] ${tone === 'teal' ? 'border-teal' : 'border-pink'}`}
+        />
+        <label className="flex w-[72px] flex-col gap-0.5 text-xs text-muted">
+          Size
+          <input
+            type="text"
+            inputMode="numeric"
+            autoComplete="off"
+            aria-label={`${label} size`}
+            value={size}
+            onChange={(e) => onSize(e.target.value)}
+            className={`${underlineInput} h-9 border-b border-line text-lg`}
+          />
+        </label>
+      </div>
+    </div>
+  )
+}
+
+// A ruler with the current price (peach dot) in the middle and your bid and ask around it.
+// The labels are normal HTML text, so they keep their size however wide the panel is.
+function QuoteRuler({ bid, ask, price }: { bid: number; ask: number; price: number }) {
+  // Keep the price in the centre and leave some room on both sides.
+  const half = Math.max(Math.abs(bid - price), Math.abs(ask - price), 0.05) * 1.6
+  const pct = (p: number) => 5 + ((p - (price - half)) / (2 * half)) * 90 // position in % of the width
+  const spread = ask - bid
+  const valid = spread > 0
+  const [from, to] = [Math.min(pct(bid), pct(ask)), Math.max(pct(bid), pct(ask))]
+
+  return (
+    <div
+      role="img"
+      aria-label={`Your bid ${bid.toFixed(2)} and ask ${ask.toFixed(2)} around the current price ${price.toFixed(2)}, spread ${spread.toFixed(2)}`}
+      className="mx-auto w-full max-w-[560px]"
+    >
+      <div className="relative h-5">
+        <span className="absolute -translate-x-1/2 font-mono text-[13px] text-peach" style={{ left: `${pct(price)}%` }}>
+          {price.toFixed(2)}
+        </span>
+      </div>
+      <div className="relative h-8">
+        <span className="absolute inset-x-0 top-1/2 h-0.5 -translate-y-1/2 bg-[#23454f]" />
+        <span
+          className={`absolute top-1/2 h-3.5 -translate-y-1/2 rounded-sm ${valid ? 'bg-peach-tint' : 'bg-error-tint'}`}
+          style={{ left: `${from}%`, width: `${to - from}%` }}
+        />
+        <span className="absolute top-0 h-8 w-1 -translate-x-1/2 rounded-sm bg-teal" style={{ left: `${pct(bid)}%` }} />
+        <span className="absolute top-0 h-8 w-1 -translate-x-1/2 rounded-sm bg-pink" style={{ left: `${pct(ask)}%` }} />
+        <span
+          className="absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-peach"
+          style={{ left: `${pct(price)}%` }}
+        />
+      </div>
+      <p className="mt-2 text-center text-sm text-muted">
+        Spread{' '}
+        <span className={`font-mono text-lg font-semibold ${valid ? 'text-fg' : 'text-pink'}`}>{num(spread)}</span>
+      </p>
+    </div>
   )
 }

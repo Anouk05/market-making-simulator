@@ -45,7 +45,7 @@ export function InfoTooltip({ text }: InfoTooltipProps) {
         onMouseLeave={hide}
         onFocus={show}
         onBlur={hide}
-        className="grid h-4 w-4 place-items-center rounded-full border border-slate-500 text-[10px] font-semibold leading-none text-slate-400 hover:border-slate-300 hover:text-slate-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+        className="grid h-[22px] w-[22px] place-items-center rounded-full border border-dim text-xs font-semibold leading-none text-muted hover:border-muted hover:text-fg"
       >
         ?
       </button>
@@ -53,7 +53,7 @@ export function InfoTooltip({ text }: InfoTooltipProps) {
         <span
           role="tooltip"
           style={{ position: 'fixed', width: WIDTH, ...position }}
-          className="pointer-events-none z-[100] rounded-lg bg-slate-800 px-4 py-3 text-sm font-normal normal-case leading-relaxed tracking-normal text-slate-200 shadow-lg ring-1 ring-slate-700"
+          className="pointer-events-none z-[100] rounded border border-line bg-raised px-3.5 py-3 text-sm font-normal normal-case leading-relaxed tracking-normal text-[#e4d8cb]"
         >
           {text}
         </span>

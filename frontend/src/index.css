@@ -1,1 +1,51 @@
 @import 'tailwindcss';
+
+/* Design tokens: the colours and fonts of the app.
+   Tailwind turns every token into classes, e.g. --color-peach -> text-peach, bg-peach, border-peach. */
+@theme {
+  --font-sans: 'Bricolage Grotesque', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
+
+  /* Ground and lines */
+  --color-backdrop: #050d10; /* behind dialogs */
+  --color-ground: #0a181d; /* page */
+  --color-surface: #0c1d23; /* position row */
+  --color-raised: #102a32; /* tooltips, info messages */
+  --color-line: #2a5260; /* panel outlines */
+  --color-line-subtle: #1d3e49; /* table rows, bar tracks */
+
+  /* Text */
+  --color-fg: #f4e7da; /* values, body text */
+  --color-fg-soft: #c8d6d7; /* secondary body text */
+  --color-muted: #8fa9ad; /* labels */
+  --color-subtle: #6b878c; /* captions, axes */
+  --color-dim: #56747a; /* the quietest text */
+
+  /* Meaning */
+  --color-peach: #ebccb0; /* you: your action, your quote, the current price */
+  --color-peach-tint: #1f2a28;
+  --color-peach-line: #5b5246;
+  --color-teal: #5cc6c8; /* buy, bid */
+  --color-teal-bright: #6fd3d3; /* profit */
+  --color-teal-tint: #123a40;
+  --color-profit-tint: #0f3b40;
+  --color-pink: #e5a3cb; /* sell, ask, loss */
+  --color-pink-tint: #3a2c44;
+  --color-error-line: #b06d95;
+  --color-error-tint: #2a1d2c;
+  --color-error-text: #f2c9e0;
+  --color-disabled: #6b6a5f;
+  --color-disabled-line: #3c4a48;
+}
+
+@layer base {
+  body {
+    @apply bg-ground font-sans text-fg antialiased;
+  }
+
+  /* One clear focus ring for keyboard users, everywhere. */
+  :focus-visible {
+    outline: 2px solid var(--color-peach);
+    outline-offset: 2px;
+  }
+}
